@@ -20,6 +20,11 @@ import java.io.FileOutputStream
 
 class ScreenshotService : Service() {
 
+    interface ScreenshotCallback {
+        fun onSuccess(imagePath: String)
+        fun onError(message: String)
+    }
+
     companion object {
         private const val CHANNEL_ID = "screen_matcher_screenshot"
         private const val NOTIFICATION_ID = 2002
@@ -43,11 +48,6 @@ class ScreenshotService : Service() {
             } else {
                 context.startService(intent)
             }
-        }
-
-        interface ScreenshotCallback {
-            fun onSuccess(imagePath: String)
-            fun onError(message: String)
         }
     }
 
