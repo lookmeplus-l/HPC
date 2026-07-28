@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/floating_window_bg"
+    android:padding="8dp"
+    android:elevation="8dp">
+
+    <!-- 拖拽手柄 -->
+    <View
+        android:id="@+id/drag_handle"
+        android:layout_width="match_parent"
+        android:layout_height="24dp"
+        android:background="@drawable/drag_handle_bg" />
+
+    <!-- 状态文字 -->
+    <TextView
+        android:id="@+id/status_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="点击开始识别"
+        android:textColor="#333333"
+        android:textSize="13sp"
+        android:padding="8dp"
+        android:gravity="center"
+        android:layout_gravity="center" />
+
+    <!-- 开始识别按钮 -->
+    <Button
+        android:id="@+id/start_button"
+        android:layout_width="160dp"
+        android:layout_height="40dp"
+        android:text="开始识别"
+        android:textSize="14sp"
+        android:layout_marginTop="4dp"
+        android:layout_gravity="center"
+        android:backgroundTint="#1976D2" />
+
+    <!-- 匹配结果图片容器（默认隐藏） -->
+    <LinearLayout
+        android:id="@+id/image_container"
+        android:layout_width="240dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:layout_marginTop="8dp">
+
+        <ImageView
+            android:id="@+id/matched_image"
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:scaleType="fitCenter"
+            android:background="#F5F5F5"
+            android:contentDescription="匹配图片" />
+
+        <Button
+            android:id="@+id/close_button"
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:text="关闭"
+            android:textSize="13sp"
+            android:layout_marginTop="4dp"
+            android:backgroundTint="#757575" />
+    </LinearLayout>
+
+</LinearLayout>
