@@ -1,57 +1,22 @@
 import 'package:flutter/services.dart';
 
-/// Native Bridge - 通过 MethodChannel 与 Android 原生代码通信
 class NativeBridge {
   static const _channel = MethodChannel('com.example.screen_matcher/native');
 
-  /// 启动悬浮窗服务
-  static Future<bool> startFloatingWindow() async {
-    try {
-      return await _channel.invokeMethod('startFloatingWindow') ?? false;
-    } catch (e) {
-      return false;
-    }
-  }
+  static Future<bool> startFloatingWindow() => _invoke('startFloatingWindow', false);
+  static Future<bool> stopFloatingWindow() => _invoke('stopFloatingWindow', false);
+  static Future<bool> checkOverlayPermission() => _invoke('checkOverlayPermission', false);
+  static Future<void> requestOverlayPermission() => _invoke('requestOverlayPermission', null);
 
-  /// 停止悬浮窗服务
-  static Future<bool> stopFloatingWindow() async {
-    try {
-      return await _channel.invokeMethod('stopFloatingWindow') ?? false;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// 检查悬浮窗权限
-  static Future<bool> checkOverlayPermission() async {
-    try {
-      return await _channel.invokeMethod('checkOverlayPermission') ?? false;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// 请求悬浮窗权限
-  static Future<void> requestOverlayPermission() async {
-    try {
-      await _channel.invokeMethod('requestOverlayPermission');
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  /// 请求截屏并返回截图文件路径
   static Future<String?> requestScreenshot() async {
     try {
-      final path = await _channel.invokeMethod('requestScreenshot');
-      return path as String?;
-    } catch (e) {
+      final result = await _channel.invokeMethod('requestScreenshot');
+      return result as String?;
+    } catch (_) {
       return null;
     }
   }
 
-  /// NCC 模板匹配：在截图中查找模板图片
-  /// 返回 Map 包含 matched, nccScore, bestX, bestY, bestScale 等字段
   static Future<Map<String, dynamic>?> matchTemplate({
     required String screenshotPath,
     required String templatePath,
@@ -61,38 +26,32 @@ class NativeBridge {
         'screenshotPath': screenshotPath,
         'templatePath': templatePath,
       });
-      if (result is Map) {
-        return Map<String, dynamic>.from(result);
-      }
+      if (result is Map) return Map<String, dynamic>.from(result);
       return null;
-    } catch (e) {
+    } catch (_) {
       return null;
     }
   }
 
-  /// 更新悬浮窗显示的图片
-  static Future<void> updateFloatingWindowImage({
+  static Future<void> showFloatingWindowImage({
     required String? imagePath,
     required bool matched,
-  }) async {
-    try {
-      await _channel.invokeMethod('updateFloatingWindowImage', {
-        'imagePath': imagePath,
-        'matched': matched,
-      });
-    } catch (e) {
-      // ignore
-    }
-  }
+  }) => _invoke('showFloatingWindowImage', null, {
+    'imagePath': imagePath,
+    'matched': matched,
+  });
 
-  /// 更新悬浮窗状态文字
-  static Future<void> updateFloatingWindowStatus(String status) async {
+  static Future<void> setFloatingWindowStatus(String status) =>
+      _invoke('setFloatingWindowStatus', null, {'status': status});
+
+  static Future<T> _invoke<T>(String method, T defaultValue, [Map<String, dynamic>? args]) async {
     try {
-      await _channel.invokeMethod('updateFloatingWindowStatus', {
-        'status': status,
-      });
-    } catch (e) {
-      // ignore
+      final result = args != null
+          ? await _channel.invokeMethod(method, args)
+          : await _channel.invokeMethod(method);
+      return (result is T) ? result : defaultValue;
+    } catch (_) {
+      return defaultValue;
     }
   }
 }

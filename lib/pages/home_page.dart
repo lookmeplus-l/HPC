@@ -12,119 +12,87 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final ImageMatcher _matcher = ImageMatcher();
-  bool _isInitialized = false;
-  bool _isFloatingWindowActive = false;
-  bool _isScanning = false;
+  final _matcher = ImageMatcher();
+  bool _ready = false;
+  bool _floatingActive = false;
+  bool _scanning = false;
 
   @override
   void initState() {
     super.initState();
-    _initialize();
+    _matcher.initialize().then((_) {
+      if (mounted) setState(() => _ready = true);
+    });
   }
 
-  Future<void> _initialize() async {
-    await _matcher.initialize();
-    setState(() => _isInitialized = true);
-  }
-
-  // ─── 悬浮窗 ────────────────────────────────────────────────
-
-  Future<void> _toggleFloatingWindow() async {
-    final hasPermission = await NativeBridge.checkOverlayPermission();
-    if (!hasPermission) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先授予悬浮窗权限')),
-        );
-      }
+  Future<void> _toggleFloating() async {
+    final ok = await NativeBridge.checkOverlayPermission();
+    if (!ok) {
+      if (mounted) _snack('请先授予悬浮窗权限');
       await NativeBridge.requestOverlayPermission();
       return;
     }
 
-    if (_isFloatingWindowActive) {
+    if (_floatingActive) {
       await NativeBridge.stopFloatingWindow();
-      setState(() => _isFloatingWindowActive = false);
+      setState(() => _floatingActive = false);
     } else {
       final success = await NativeBridge.startFloatingWindow();
-      if (success) setState(() => _isFloatingWindowActive = true);
+      if (success) setState(() => _floatingActive = true);
     }
   }
 
-  // ─── 截屏识别 ──────────────────────────────────────────────
-
   Future<void> _startRecognition() async {
-    if (_isScanning || _matcher.presetImageNames.isEmpty) return;
-
-    setState(() => _isScanning = true);
-    await NativeBridge.updateFloatingWindowStatus('scanning');
+    if (_scanning || _matcher.count == 0) return;
+    setState(() => _scanning = true);
+    await NativeBridge.setFloatingWindowStatus('scanning');
 
     try {
-      final screenshotPath = await NativeBridge.requestScreenshot();
-      if (screenshotPath == null) {
-        await NativeBridge.updateFloatingWindowStatus('idle');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('截屏失败，请重试')),
-          );
-        }
+      final path = await NativeBridge.requestScreenshot();
+      if (path == null) {
+        await NativeBridge.setFloatingWindowStatus('idle');
+        if (mounted) _snack('截屏失败，请重试');
         return;
       }
 
-      final result = await _matcher.matchScreenshot(screenshotPath);
+      final result = await _matcher.matchScreenshot(path);
 
       if (result != null && result.matched) {
-        final templatePath = _matcher.getTemplateCachePath(result.templateName);
-        await NativeBridge.updateFloatingWindowImage(
-          imagePath: templatePath,
+        await NativeBridge.showFloatingWindowImage(
+          imagePath: _matcher.cachePath(result.templateName),
           matched: true,
         );
-        await NativeBridge.updateFloatingWindowStatus('matched');
+        await NativeBridge.setFloatingWindowStatus('matched');
       } else {
-        await NativeBridge.updateFloatingWindowImage(
-          imagePath: null,
-          matched: false,
-        );
-        await NativeBridge.updateFloatingWindowStatus('no_match');
+        await NativeBridge.showFloatingWindowImage(imagePath: null, matched: false);
+        await NativeBridge.setFloatingWindowStatus('no_match');
       }
 
-      try {
-        File(screenshotPath).deleteSync();
-      } catch (_) {}
+      try { File(path).deleteSync(); } catch (_) {}
     } catch (e) {
-      await NativeBridge.updateFloatingWindowStatus('idle');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('识别出错: $e')),
-        );
-      }
+      await NativeBridge.setFloatingWindowStatus('idle');
+      if (mounted) _snack('识别出错: $e');
     } finally {
-      setState(() => _isScanning = false);
+      setState(() => _scanning = false);
     }
   }
-
-  // ─── 上传图片 ──────────────────────────────────────────────
 
   Future<void> _pickImage() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-    );
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
     if (result == null || result.files.isEmpty) return;
 
-    final file = File(result.files.single.path!);
-    final success = await _matcher.addImageFromFile(file);
+    final ok = await _matcher.addImage(File(result.files.single.path!));
     if (mounted) {
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(success ? '已添加图片' : '添加失败'),
-          duration: const Duration(seconds: 1),
-        ),
-      );
+      _snack(ok ? '已添加图片' : '添加失败');
     }
   }
 
-  // ─── UI ────────────────────────────────────────────────────
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 1)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -133,44 +101,42 @@ class _HomePageState extends State<HomePage> {
         title: const Text('截图识别工具'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
       ),
-      body: !_isInitialized
+      body: !_ready
           ? const Center(child: CircularProgressIndicator())
           : Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildQuickActions(),
+                  _buildActions(),
                   const SizedBox(height: 16),
-                  Expanded(child: _buildImageList()),
+                  Expanded(child: _buildList()),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildActions() {
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _QuickActionButton(
-              icon: _isFloatingWindowActive
-                  ? Icons.visibility_off
-                  : Icons.visibility,
-              label: _isFloatingWindowActive ? '关闭悬浮窗' : '启动悬浮窗',
-              color: _isFloatingWindowActive ? Colors.red : Colors.blue,
-              onTap: _toggleFloatingWindow,
+            _ActionBtn(
+              icon: _floatingActive ? Icons.visibility_off : Icons.visibility,
+              label: _floatingActive ? '关闭悬浮窗' : '启动悬浮窗',
+              color: _floatingActive ? Colors.red : Colors.blue,
+              onTap: _toggleFloating,
             ),
-            _QuickActionButton(
-              icon: _isScanning ? Icons.hourglass_top : Icons.camera_alt,
-              label: _isScanning ? '识别中' : '截屏识别',
+            _ActionBtn(
+              icon: _scanning ? Icons.hourglass_top : Icons.camera_alt,
+              label: _scanning ? '识别中' : '截屏识别',
               color: Colors.orange,
               onTap: _startRecognition,
             ),
-            _QuickActionButton(
+            _ActionBtn(
               icon: Icons.add_photo_alternate,
               label: '添加图片',
               color: Colors.teal,
@@ -182,8 +148,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildImageList() {
-    final names = _matcher.presetImageNames;
+  Widget _buildList() {
+    final names = _matcher.allNames;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -196,8 +163,7 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(width: 8),
                 Text(
                   '预置图片 (${names.length})',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -216,59 +182,63 @@ class _HomePageState extends State<HomePage> {
               Expanded(
                 child: ListView.builder(
                   itemCount: names.length,
-                  itemBuilder: (context, index) {
-                    final name = names[index];
-                    final bytes = _matcher.getPresetImageBytes(name);
-                    final isDynamic = _matcher.isDynamicImage(name);
+                  itemBuilder: (_, i) {
+                    final name = names[i];
+                    final preview = _matcher.preview(name);
+                    final dynamic_ = _matcher.isDynamic(name);
+
                     return Dismissible(
                       key: Key(name),
-                      direction: isDynamic
-                          ? DismissDirection.endToStart
-                          : DismissDirection.none,
+                      direction:
+                          dynamic_ ? DismissDirection.endToStart : DismissDirection.none,
                       confirmDismiss: (_) async {
-                        if (!isDynamic) return false;
-                        return await showDialog<bool>(
+                        if (!dynamic_) return false;
+                        final confirm = await showDialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
                             title: const Text('删除图片'),
-                            content: Text('确定要删除「$name」吗？'),
+                            content: Text('确定删除「$name」吗？'),
                             actions: [
                               TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
                                 child: const Text('取消'),
+                                onPressed: () => Navigator.pop(ctx, false),
                               ),
                               TextButton(
+                                child:
+                                    const Text('删除', style: TextStyle(color: Colors.red)),
                                 onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('删除',
-                                    style: TextStyle(color: Colors.red)),
                               ),
                             ],
                           ),
                         );
+                        return confirm ?? false;
                       },
                       onDismissed: (_) {
-                        _matcher.removeDynamicImage(name);
+                        _matcher.removeImage(name);
                         setState(() {});
                       },
                       background: Container(
                         alignment: Alignment.centerRight,
                         padding: const EdgeInsets.only(right: 20),
                         color: Colors.red,
-                        child:
-                            const Icon(Icons.delete, color: Colors.white),
+                        child: const Icon(Icons.delete, color: Colors.white),
                       ),
                       child: ListTile(
-                        leading: bytes != null
+                        leading: preview != null
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(4),
-                                child: Image.memory(bytes,
-                                    width: 48, height: 48, fit: BoxFit.cover),
+                                child: Image.memory(
+                                  preview,
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.cover,
+                                ),
                               )
                             : const Icon(Icons.image, size: 48),
-                        title: Text(name, style: const TextStyle(fontSize: 14)),
-                        trailing: isDynamic
-                            ? const Icon(Icons.swipe_left,
-                                size: 16, color: Colors.grey)
+                        title:
+                            Text(name, style: const TextStyle(fontSize: 14)),
+                        trailing: dynamic_
+                            ? const Icon(Icons.swipe_left, size: 16, color: Colors.grey)
                             : null,
                         dense: true,
                       ),
@@ -284,18 +254,18 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    if (_isFloatingWindowActive) NativeBridge.stopFloatingWindow();
+    if (_floatingActive) NativeBridge.stopFloatingWindow();
     super.dispose();
   }
 }
 
-class _QuickActionButton extends StatelessWidget {
+class _ActionBtn extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
 
-  const _QuickActionButton({
+  const _ActionBtn({
     required this.icon,
     required this.label,
     required this.color,
@@ -322,10 +292,7 @@ class _QuickActionButton extends StatelessWidget {
               child: Icon(icon, color: color, size: 26),
             ),
             const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-            ),
+            Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
           ],
         ),
       ),

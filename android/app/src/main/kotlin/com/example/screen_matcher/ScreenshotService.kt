@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.*
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
@@ -22,12 +21,12 @@ import java.io.FileOutputStream
 class ScreenshotService : Service() {
 
     companion object {
-        const val CHANNEL_ID = "screen_matcher_screenshot"
-        const val NOTIFICATION_ID = 2002
+        private const val CHANNEL_ID = "screen_matcher_screenshot"
+        private const val NOTIFICATION_ID = 2002
 
         private var callback: ScreenshotCallback? = null
 
-        fun startScreenshot(
+        fun start(
             context: Context,
             resultCode: Int,
             data: Intent,
@@ -47,8 +46,8 @@ class ScreenshotService : Service() {
         }
 
         interface ScreenshotCallback {
-            fun onScreenshotTaken(imagePath: String)
-            fun onError(error: String)
+            fun onSuccess(imagePath: String)
+            fun onError(message: String)
         }
     }
 
@@ -114,23 +113,23 @@ class ScreenshotService : Service() {
                     val rowStride = planes[0].rowStride
                     val rowPadding = rowStride - pixelStride * width
 
-                    val bitmap = Bitmap.createBitmap(
+                    val bitmap = android.graphics.Bitmap.createBitmap(
                         width + rowPadding / pixelStride,
                         height,
-                        Bitmap.Config.ARGB_8888
+                        android.graphics.Bitmap.Config.ARGB_8888
                     )
                     bitmap.copyPixelsFromBuffer(buffer)
 
-                    val cropped = Bitmap.createBitmap(bitmap, 0, 0, width, height)
+                    val cropped = android.graphics.Bitmap.createBitmap(bitmap, 0, 0, width, height)
                     bitmap.recycle()
 
                     val file = File(cacheDir, "screenshot_${System.currentTimeMillis()}.png")
                     FileOutputStream(file).use { out ->
-                        cropped.compress(Bitmap.CompressFormat.PNG, 100, out)
+                        cropped.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
                     }
                     cropped.recycle()
 
-                    callback?.onScreenshotTaken(file.absolutePath)
+                    callback?.onSuccess(file.absolutePath)
                 } catch (e: Exception) {
                     callback?.onError("截图保存失败: ${e.message}")
                 } finally {

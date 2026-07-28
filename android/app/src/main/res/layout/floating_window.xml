@@ -4,17 +4,14 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@drawable/floating_window_bg"
-    android:padding="8dp"
-    android:elevation="8dp">
+    android:padding="8dp">
 
-    <!-- 拖拽手柄 -->
     <View
         android:id="@+id/drag_handle"
         android:layout_width="match_parent"
         android:layout_height="24dp"
         android:background="@drawable/drag_handle_bg" />
 
-    <!-- 状态文字 -->
     <TextView
         android:id="@+id/status_text"
         android:layout_width="wrap_content"
@@ -26,7 +23,6 @@
         android:gravity="center"
         android:layout_gravity="center" />
 
-    <!-- 开始识别按钮 -->
     <Button
         android:id="@+id/start_button"
         android:layout_width="160dp"
@@ -37,7 +33,6 @@
         android:layout_gravity="center"
         android:backgroundTint="#1976D2" />
 
-    <!-- 匹配结果图片容器（默认隐藏） -->
     <LinearLayout
         android:id="@+id/image_container"
         android:layout_width="240dp"

@@ -2,7 +2,6 @@ package com.example.screen_matcher
 
 import android.annotation.SuppressLint
 import android.app.*
-import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
@@ -20,42 +19,40 @@ import androidx.core.app.NotificationCompat
 class FloatingWindowService : Service() {
 
     companion object {
-        const val CHANNEL_ID = "screen_matcher_floating"
-        const val NOTIFICATION_ID = 2001
-
-        private var instance: FloatingWindowService? = null
-        private var currentImageView: ImageView? = null
-        private var statusText: TextView? = null
-        private var imageContainer: LinearLayout? = null
-        private var onStartRecognitionListener: (() -> Unit)? = null
+        private const val CHANNEL_ID = "screen_matcher_floating"
+        private const val NOTIFICATION_ID = 2001
 
         private val mainHandler = Handler(Looper.getMainLooper())
 
-        fun setOnStartRecognitionListener(listener: (() -> Unit)?) {
-            onStartRecognitionListener = listener
-        }
+        private var instance: FloatingWindowService? = null
+        private var imageView: ImageView? = null
+        private var statusText: TextView? = null
+        private var imageContainer: LinearLayout? = null
+        var onStartRecognition: (() -> Unit)? = null
 
-        fun updateImage(imagePath: String?, matched: Boolean) {
+        fun showImage(path: String) {
             mainHandler.post {
-                if (matched && imagePath != null) {
-                    val bitmap = BitmapFactory.decodeFile(imagePath)
-                    currentImageView?.setImageBitmap(bitmap)
-                    imageContainer?.visibility = View.VISIBLE
-                } else {
-                    imageContainer?.visibility = View.GONE
-                    statusText?.text = "未找到匹配"
-                }
+                val bitmap = BitmapFactory.decodeFile(path)
+                imageView?.setImageBitmap(bitmap)
+                imageContainer?.visibility = View.VISIBLE
             }
         }
 
-        fun updateStatus(status: String) {
+        fun hideImage() {
             mainHandler.post {
-                statusText?.text = when (status) {
+                imageContainer?.visibility = View.GONE
+                statusText?.text = "未找到匹配"
+            }
+        }
+
+        fun setStatus(text: String) {
+            mainHandler.post {
+                statusText?.text = when (text) {
                     "scanning" -> "正在识别中..."
-                    "matched" -> "已匹配"
-                    "no_match" -> "未找到匹配"
-                    "idle" -> "点击开始识别"
-                    else -> status
+                    "matched"   -> "已匹配"
+                    "no_match"  -> "未找到匹配"
+                    "idle"      -> "点击开始识别"
+                    else        -> text
                 }
             }
         }
@@ -108,15 +105,14 @@ class FloatingWindowService : Service() {
 
         statusText = floatingView?.findViewById(R.id.status_text)
         imageContainer = floatingView?.findViewById(R.id.image_container)
-        currentImageView = floatingView?.findViewById(R.id.matched_image)
+        imageView = floatingView?.findViewById(R.id.matched_image)
 
         floatingView?.findViewById<Button>(R.id.start_button)?.setOnClickListener {
-            onStartRecognitionListener?.invoke()
+            onStartRecognition?.invoke()
         }
 
         floatingView?.findViewById<Button>(R.id.close_button)?.setOnClickListener {
-            imageContainer?.visibility = View.GONE
-            statusText?.text = "点击开始识别"
+            hideImage()
         }
 
         var initialX = 0
