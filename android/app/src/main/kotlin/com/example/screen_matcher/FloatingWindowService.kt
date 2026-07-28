@@ -1,8 +1,8 @@
 package com.example.screen_matcher
 
-import android.annotation.SuppressLint
 import android.app.*
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
 import android.os.Build
@@ -63,13 +63,16 @@ class FloatingWindowService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    @SuppressLint("ForegroundServiceType")
     override fun onCreate() {
         super.onCreate()
         instance = this
 
-        createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification())
+        val notification = createNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createFloatingWindow()
@@ -90,6 +93,7 @@ class FloatingWindowService : Service() {
     }
 
     private fun createNotification(): Notification {
+        createNotificationChannel()
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("截图识别")
             .setContentText("悬浮窗服务运行中")
@@ -98,7 +102,6 @@ class FloatingWindowService : Service() {
             .build()
     }
 
-    @SuppressLint("ClickableViewAccessibility")
     private fun createFloatingWindow() {
         val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
         floatingView = inflater.inflate(R.layout.floating_window, null)

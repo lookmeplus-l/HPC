@@ -13,7 +13,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private companion object {
+    companion object {
         const val CHANNEL = "com.example.screen_matcher/native"
         const val REQUEST_SCREENSHOT = 1001
         const val REQUEST_OVERLAY = 1002

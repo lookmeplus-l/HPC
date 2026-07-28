@@ -34,7 +34,11 @@
         <service
             android:name=".FloatingWindowService"
             android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="用于在截屏识别时保持悬浮窗服务在前台运行" />
+        </service>
 
         <service
             android:name=".ScreenshotService"

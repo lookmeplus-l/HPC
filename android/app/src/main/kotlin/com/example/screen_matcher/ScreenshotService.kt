@@ -1,9 +1,9 @@
 package com.example.screen_matcher
 
-import android.annotation.SuppressLint
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
@@ -57,10 +57,13 @@ class ScreenshotService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    @SuppressLint("ForegroundServiceType")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification())
+        val notification = createNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
 
         val resultCode = intent?.getIntExtra("resultCode", -1) ?: -1
         val data = intent?.getParcelableExtra<Intent>("data")
@@ -75,7 +78,14 @@ class ScreenshotService : Service() {
             getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
         mediaProjection = projectionManager.getMediaProjection(resultCode, data)
-        mediaProjection?.registerCallback(object : MediaProjection.Callback() {
+
+        if (mediaProjection == null) {
+            callback?.onError("Failed to create MediaProjection")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        mediaProjection!!.registerCallback(object : MediaProjection.Callback() {
             override fun onStop() {
                 cleanup()
                 stopSelf()
@@ -163,6 +173,7 @@ class ScreenshotService : Service() {
     }
 
     private fun createNotification(): Notification {
+        createNotificationChannel()
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("截图识别")
             .setContentText("正在截取屏幕...")
