@@ -21,6 +21,9 @@ class FloatingWindowService : Service() {
     private var floatingView: View? = null
 
     companion object {
+        const val CHANNEL_ID = "screen_matcher_floating"
+        const val NOTIFICATION_ID = 2001
+
         private var instance: FloatingWindowService? = null
         private var currentImageView: ImageView? = null
         private var statusText: TextView? = null
@@ -34,9 +37,8 @@ class FloatingWindowService : Service() {
 
         fun updateImage(imagePath: String?, matched: Boolean) {
             instance?.let { service ->
-                service.runOnUiThread {
+                runOnUiThread {
                     if (matched && imagePath != null) {
-                        // 显示匹配图片
                         val bitmap = BitmapFactory.decodeFile(imagePath)
                         currentImageView?.setImageBitmap(bitmap)
                         imageContainer?.visibility = View.VISIBLE
@@ -50,7 +52,7 @@ class FloatingWindowService : Service() {
 
         fun updateStatus(status: String) {
             instance?.let { service ->
-                service.runOnUiThread {
+                runOnUiThread {
                     statusText?.text = when (status) {
                         "scanning" -> "正在识别中..."
                         "matched" -> "已匹配"
@@ -124,7 +126,6 @@ class FloatingWindowService : Service() {
             statusText?.text = "点击开始识别"
         }
 
-        // 拖拽移动
         var initialX = 0
         var initialY = 0
         var initialTouchX = 0f
@@ -172,10 +173,5 @@ class FloatingWindowService : Service() {
         super.onDestroy()
         instance = null
         floatingView?.let { windowManager?.removeView(it) }
-    }
-
-    companion object {
-        const val CHANNEL_ID = "screen_matcher_floating"
-        const val NOTIFICATION_ID = 2001
     }
 }

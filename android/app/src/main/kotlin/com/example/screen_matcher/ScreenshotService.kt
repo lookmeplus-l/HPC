@@ -1,5 +1,6 @@
 package com.example.screen_matcher
 
+import android.annotation.SuppressLint
 import android.app.*
 import android.content.Context
 import android.content.Intent
@@ -26,6 +27,9 @@ class ScreenshotService : Service() {
     private var imageReader: ImageReader? = null
 
     companion object {
+        const val CHANNEL_ID = "screen_matcher_screenshot"
+        const val NOTIFICATION_ID = 2002
+
         private var callback: ScreenshotCallback? = null
 
         fun startScreenshot(
@@ -118,11 +122,9 @@ class ScreenshotService : Service() {
                     )
                     bitmap.copyPixelsFromBuffer(buffer)
 
-                    // Crop to actual size
                     val cropped = Bitmap.createBitmap(bitmap, 0, 0, width, height)
                     bitmap.recycle()
 
-                    // Save to cache
                     val cacheDir = cacheDir
                     val file = File(cacheDir, "screenshot_${System.currentTimeMillis()}.png")
                     FileOutputStream(file).use { out ->
@@ -172,10 +174,5 @@ class ScreenshotService : Service() {
     override fun onDestroy() {
         cleanup()
         super.onDestroy()
-    }
-
-    companion object {
-        const val CHANNEL_ID = "screen_matcher_screenshot"
-        const val NOTIFICATION_ID = 2002
     }
 }
