@@ -2,10 +2,11 @@ name: Build Android APK
 
 on:
   push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+    branches: [master]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -29,14 +30,13 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: 'platforms;android-34 build-tools;34.0.0'
-
-      - name: Verify environment
+      - name: Accept Android SDK licenses
         run: |
-          flutter doctor -v
+          yes | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      - name: Create local.properties
+        run: |
+          mkdir -p screen_matcher/android
           echo "sdk.dir=${ANDROID_HOME}" > screen_matcher/android/local.properties
           echo "flutter.sdk=${FLUTTER_ROOT}" >> screen_matcher/android/local.properties
 
@@ -52,14 +52,23 @@ jobs:
         run: flutter build apk --release
         working-directory: screen_matcher
 
-      - name: Upload debug APK
+      - name: Upload debug APK to artifacts
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: screen_matcher/build/app/outputs/flutter-apk/app-debug.apk
 
-      - name: Upload release APK
+      - name: Upload release APK to artifacts
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: screen_matcher/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          files: |
+            screen_matcher/build/app/outputs/flutter-apk/app-release.apk
+          generate_release_notes: true
