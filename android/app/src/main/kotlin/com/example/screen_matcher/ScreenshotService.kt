@@ -15,16 +15,11 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.util.DisplayMetrics
 import androidx.core.app.NotificationCompat
 import java.io.File
 import java.io.FileOutputStream
 
 class ScreenshotService : Service() {
-
-    private var mediaProjection: MediaProjection? = null
-    private var virtualDisplay: VirtualDisplay? = null
-    private var imageReader: ImageReader? = null
 
     companion object {
         const val CHANNEL_ID = "screen_matcher_screenshot"
@@ -37,9 +32,9 @@ class ScreenshotService : Service() {
             resultCode: Int,
             data: Intent,
             projectionManager: MediaProjectionManager,
-            cb: ScreenshotCallback
+            callback: ScreenshotCallback
         ) {
-            callback = cb
+            this.callback = callback
             val intent = Intent(context, ScreenshotService::class.java).apply {
                 putExtra("resultCode", resultCode)
                 putExtra("data", data)
@@ -56,6 +51,10 @@ class ScreenshotService : Service() {
             fun onError(error: String)
         }
     }
+
+    private var mediaProjection: MediaProjection? = null
+    private var virtualDisplay: VirtualDisplay? = null
+    private var imageReader: ImageReader? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -125,7 +124,6 @@ class ScreenshotService : Service() {
                     val cropped = Bitmap.createBitmap(bitmap, 0, 0, width, height)
                     bitmap.recycle()
 
-                    val cacheDir = cacheDir
                     val file = File(cacheDir, "screenshot_${System.currentTimeMillis()}.png")
                     FileOutputStream(file).use { out ->
                         cropped.compress(Bitmap.CompressFormat.PNG, 100, out)
@@ -155,8 +153,11 @@ class ScreenshotService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel =
-                NotificationChannel(CHANNEL_ID, "截图服务", NotificationManager.IMPORTANCE_LOW)
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "截图服务",
+                NotificationManager.IMPORTANCE_LOW
+            )
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }

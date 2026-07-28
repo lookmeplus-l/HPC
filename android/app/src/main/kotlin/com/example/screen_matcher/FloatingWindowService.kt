@@ -7,7 +7,9 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -17,9 +19,6 @@ import androidx.core.app.NotificationCompat
 
 class FloatingWindowService : Service() {
 
-    private var windowManager: WindowManager? = null
-    private var floatingView: View? = null
-
     companion object {
         const val CHANNEL_ID = "screen_matcher_floating"
         const val NOTIFICATION_ID = 2001
@@ -28,46 +27,42 @@ class FloatingWindowService : Service() {
         private var currentImageView: ImageView? = null
         private var statusText: TextView? = null
         private var imageContainer: LinearLayout? = null
-        private var startButton: Button? = null
         private var onStartRecognitionListener: (() -> Unit)? = null
+
+        private val mainHandler = Handler(Looper.getMainLooper())
 
         fun setOnStartRecognitionListener(listener: (() -> Unit)?) {
             onStartRecognitionListener = listener
         }
 
         fun updateImage(imagePath: String?, matched: Boolean) {
-            instance?.let { service ->
-                runOnUiThread {
-                    if (matched && imagePath != null) {
-                        val bitmap = BitmapFactory.decodeFile(imagePath)
-                        currentImageView?.setImageBitmap(bitmap)
-                        imageContainer?.visibility = View.VISIBLE
-                    } else {
-                        imageContainer?.visibility = View.GONE
-                        statusText?.text = "未找到匹配"
-                    }
+            mainHandler.post {
+                if (matched && imagePath != null) {
+                    val bitmap = BitmapFactory.decodeFile(imagePath)
+                    currentImageView?.setImageBitmap(bitmap)
+                    imageContainer?.visibility = View.VISIBLE
+                } else {
+                    imageContainer?.visibility = View.GONE
+                    statusText?.text = "未找到匹配"
                 }
             }
         }
 
         fun updateStatus(status: String) {
-            instance?.let { service ->
-                runOnUiThread {
-                    statusText?.text = when (status) {
-                        "scanning" -> "正在识别中..."
-                        "matched" -> "已匹配"
-                        "no_match" -> "未找到匹配"
-                        "idle" -> "点击开始识别"
-                        else -> status
-                    }
+            mainHandler.post {
+                statusText?.text = when (status) {
+                    "scanning" -> "正在识别中..."
+                    "matched" -> "已匹配"
+                    "no_match" -> "未找到匹配"
+                    "idle" -> "点击开始识别"
+                    else -> status
                 }
             }
         }
-
-        private fun runOnUiThread(action: () -> Unit) {
-            android.os.Handler(android.os.Looper.getMainLooper()).post(action)
-        }
     }
+
+    private var windowManager: WindowManager? = null
+    private var floatingView: View? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -112,16 +107,14 @@ class FloatingWindowService : Service() {
         floatingView = inflater.inflate(R.layout.floating_window, null)
 
         statusText = floatingView?.findViewById(R.id.status_text)
-        startButton = floatingView?.findViewById(R.id.start_button)
         imageContainer = floatingView?.findViewById(R.id.image_container)
         currentImageView = floatingView?.findViewById(R.id.matched_image)
-        val closeButton = floatingView?.findViewById<Button>(R.id.close_button)
 
-        startButton?.setOnClickListener {
+        floatingView?.findViewById<Button>(R.id.start_button)?.setOnClickListener {
             onStartRecognitionListener?.invoke()
         }
 
-        closeButton?.setOnClickListener {
+        floatingView?.findViewById<Button>(R.id.close_button)?.setOnClickListener {
             imageContainer?.visibility = View.GONE
             statusText?.text = "点击开始识别"
         }
@@ -134,17 +127,18 @@ class FloatingWindowService : Service() {
         floatingView?.findViewById<View>(R.id.drag_handle)?.setOnTouchListener { _, event ->
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN -> {
-                    initialX = (floatingView?.layoutParams as WindowManager.LayoutParams).x
-                    initialY = (floatingView?.layoutParams as WindowManager.LayoutParams).y
+                    val lp = floatingView?.layoutParams as WindowManager.LayoutParams
+                    initialX = lp.x
+                    initialY = lp.y
                     initialTouchX = event.rawX
                     initialTouchY = event.rawY
                     true
                 }
                 android.view.MotionEvent.ACTION_MOVE -> {
-                    val params = floatingView?.layoutParams as WindowManager.LayoutParams
-                    params.x = initialX + (event.rawX - initialTouchX).toInt()
-                    params.y = initialY + (event.rawY - initialTouchY).toInt()
-                    windowManager?.updateViewLayout(floatingView, params)
+                    val lp = floatingView?.layoutParams as WindowManager.LayoutParams
+                    lp.x = initialX + (event.rawX - initialTouchX).toInt()
+                    lp.y = initialY + (event.rawY - initialTouchY).toInt()
+                    windowManager?.updateViewLayout(floatingView, lp)
                     true
                 }
                 else -> false

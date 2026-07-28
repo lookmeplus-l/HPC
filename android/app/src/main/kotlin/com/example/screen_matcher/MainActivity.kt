@@ -50,7 +50,7 @@ class MainActivity : FlutterActivity() {
                     "updateFloatingWindowImage" -> {
                         val imagePath = call.argument<String>("imagePath")
                         val matched = call.argument<Boolean>("matched") ?: false
-                        updateFloatingWindowImage(imagePath, matched)
+                        FloatingWindowService.updateImage(imagePath, matched)
                         result.success(true)
                     }
                     "updateFloatingWindowStatus" -> {
@@ -65,7 +65,6 @@ class MainActivity : FlutterActivity() {
                             result.error("INVALID_ARGS", "Missing screenshotPath or templatePath", null)
                             return@setMethodCallHandler
                         }
-                        // 在后台线程执行模板匹配
                         Thread {
                             val matchResult = TemplateMatcher.match(screenshotPath, templatePath)
                             runOnUiThread {
@@ -95,14 +94,12 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun requestOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!Settings.canDrawOverlays(this)) {
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:$packageName")
-                )
-                startActivityForResult(intent, OVERLAY_PERMISSION_REQUEST_CODE)
-            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            startActivityForResult(intent, OVERLAY_PERMISSION_REQUEST_CODE)
         }
     }
 
@@ -116,8 +113,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun stopFloatingWindowService() {
-        val intent = Intent(this, FloatingWindowService::class.java)
-        stopService(intent)
+        stopService(Intent(this, FloatingWindowService::class.java))
     }
 
     private fun requestScreenshotPermission() {
@@ -130,43 +126,36 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun updateFloatingWindowImage(imagePath: String?, matched: Boolean) {
-        FloatingWindowService.updateImage(imagePath, matched)
-    }
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        when (requestCode) {
-            SCREENSHOT_REQUEST_CODE -> {
-                if (resultCode == Activity.RESULT_OK && data != null) {
-                    // 启动截图服务
-                    ScreenshotService.startScreenshot(
-                        this,
-                        resultCode,
-                        data,
-                        mediaProjectionManager!!,
-                        object : ScreenshotService.ScreenshotCallback {
-                            override fun onScreenshotTaken(imagePath: String) {
-                                runOnUiThread {
-                                    pendingResult?.success(imagePath)
-                                    pendingResult = null
-                                }
-                            }
+        if (requestCode != SCREENSHOT_REQUEST_CODE) return
 
-                            override fun onError(error: String) {
-                                runOnUiThread {
-                                    pendingResult?.error("SCREENSHOT_ERROR", error, null)
-                                    pendingResult = null
-                                }
-                            }
+        if (resultCode == Activity.RESULT_OK && data != null) {
+            ScreenshotService.startScreenshot(
+                context = this,
+                resultCode = resultCode,
+                data = data,
+                projectionManager = mediaProjectionManager!!,
+                callback = object : ScreenshotService.ScreenshotCallback {
+                    override fun onScreenshotTaken(imagePath: String) {
+                        runOnUiThread {
+                            pendingResult?.success(imagePath)
+                            pendingResult = null
                         }
-                    )
-                } else {
-                    pendingResult?.error("PERMISSION_DENIED", "用户取消了截屏权限", null)
-                    pendingResult = null
+                    }
+
+                    override fun onError(error: String) {
+                        runOnUiThread {
+                            pendingResult?.error("SCREENSHOT_ERROR", error, null)
+                            pendingResult = null
+                        }
+                    }
                 }
-            }
+            )
+        } else {
+            pendingResult?.error("PERMISSION_DENIED", "用户取消了截屏权限", null)
+            pendingResult = null
         }
     }
 
