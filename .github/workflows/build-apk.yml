@@ -17,40 +17,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          flutter-version: '3.22.3'
-          channel: 'stable'
-          cache: true
+          gradle-version: '8.5'
 
       - name: Accept Android SDK licenses
         run: |
           yes | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Create local.properties
-        run: |
-          mkdir -p android
-          echo "sdk.dir=${ANDROID_HOME}" > android/local.properties
-          echo "flutter.sdk=${FLUTTER_ROOT}" >> android/local.properties
+      - name: Build debug APK
+        run: gradle assembleDebug
 
-      - name: Get Flutter dependencies
-        run: flutter pub get
-
-      - name: Build APK (release)
-        run: flutter build apk --release
+      - name: Build release APK
+        run: gradle assembleRelease
 
       - name: Upload APK to artifacts
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
 
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -58,5 +50,5 @@ jobs:
           tag_name: v${{ github.run_number }}
           name: Release v${{ github.run_number }}
           files: |
-            build/app/outputs/flutter-apk/app-release.apk
+            app/build/outputs/apk/release/app-release-unsigned.apk
           generate_release_notes: true
