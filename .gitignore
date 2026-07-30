@@ -1,23 +1,18 @@
-# Flutter
-.dart_tool/
-.packages
+# Gradle
+.gradle/
 build/
-*.iml
-.idea/
-.vscode/
-*.lock
-
-# Android
-android/app/build/
-android/.gradle/
-android/local.properties
-android/key.properties
+local.properties
+key.properties
 *.jks
 *.keystore
 
-# iOS
-ios/Pods/
-ios/.symlinks/
+# Android Studio
+.idea/
+*.iml
+.vscode/
+
+# Generated files
+gen/
 
 # Misc
 .DS_Store
