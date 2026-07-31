@@ -127,44 +127,47 @@ class MainActivity : AppCompatActivity() {
         pendingScreenshotResult = { path ->
             if (path == null) {
                 onScreenshotFailed("截屏失败")
-                return@pendingScreenshotResult
+            } else {
+                handleScreenshot(path)
             }
-
-            Thread {
-                var bestName: String? = null
-                var bestScore = 0f
-                var bestMatched = false
-
-                for (name in presetManager.allNames) {
-                    val templatePath = presetManager.cachePath(name) ?: continue
-                    val result = TemplateMatcher.match(path, templatePath)
-                    if (result.nccScore > bestScore) {
-                        bestScore = result.nccScore
-                        bestName = name
-                        bestMatched = result.matched
-                    }
-                }
-
-                val matched = bestMatched && bestName != null
-                val templatePath = bestName?.let { presetManager.cachePath(it) }
-
-                runOnUiThread {
-                    if (matched && templatePath != null) {
-                        FloatingWindowService.showImage(templatePath)
-                        FloatingWindowService.setStatus("matched")
-                    } else {
-                        FloatingWindowService.hideImage()
-                        FloatingWindowService.setStatus("no_match")
-                    }
-
-                    File(path).delete()
-                    scanning = false
-                    tvScreenshotLabel.text = "截屏识别"
-                }
-            }.start()
         }
 
         startActivityForResult(intent, REQUEST_SCREENSHOT)
+    }
+
+    private fun handleScreenshot(path: String) {
+        Thread {
+            var bestName: String? = null
+            var bestScore = 0f
+            var bestMatched = false
+
+            for (name in presetManager.allNames) {
+                val templatePath = presetManager.cachePath(name) ?: continue
+                val result = TemplateMatcher.match(path, templatePath)
+                if (result.nccScore > bestScore) {
+                    bestScore = result.nccScore
+                    bestName = name
+                    bestMatched = result.matched
+                }
+            }
+
+            val matched = bestMatched && bestName != null
+            val templatePath = bestName?.let { presetManager.cachePath(it) }
+
+            runOnUiThread {
+                if (matched && templatePath != null) {
+                    FloatingWindowService.showImage(templatePath)
+                    FloatingWindowService.setStatus("matched")
+                } else {
+                    FloatingWindowService.hideImage()
+                    FloatingWindowService.setStatus("no_match")
+                }
+
+                File(path).delete()
+                scanning = false
+                tvScreenshotLabel.text = "截屏识别"
+            }
+        }.start()
     }
 
     private fun onScreenshotFailed(msg: String) {
