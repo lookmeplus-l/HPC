@@ -66,7 +66,12 @@ class ScreenshotService : Service() {
         }
 
         val resultCode = intent?.getIntExtra("resultCode", -1) ?: -1
-        val data = intent?.getParcelableExtra<Intent>("data")
+        val data = if (Build.VERSION.SDK_INT >= 33) {
+            intent?.getParcelableExtra("data", Intent::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent?.getParcelableExtra<Intent>("data")
+        }
 
         if (resultCode == -1 || data == null) {
             callback?.onError("Invalid intent data")
@@ -77,7 +82,13 @@ class ScreenshotService : Service() {
         val projectionManager =
             getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
-        mediaProjection = projectionManager.getMediaProjection(resultCode, data)
+        try {
+            mediaProjection = projectionManager.getMediaProjection(resultCode, data)
+        } catch (e: SecurityException) {
+            callback?.onError("没有截屏权限")
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
         if (mediaProjection == null) {
             callback?.onError("Failed to create MediaProjection")
@@ -103,15 +114,6 @@ class ScreenshotService : Service() {
         val density = metrics.densityDpi
 
         imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
-
-        virtualDisplay = mediaProjection?.createVirtualDisplay(
-            "ScreenshotCapture",
-            width, height, density,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            imageReader?.surface,
-            null,
-            null
-        )
 
         imageReader?.setOnImageAvailableListener({ reader ->
             val image = reader.acquireLatestImage()
@@ -149,6 +151,21 @@ class ScreenshotService : Service() {
             cleanup()
             stopSelf()
         }, Handler(Looper.getMainLooper()))
+
+        virtualDisplay = mediaProjection?.createVirtualDisplay(
+            "ScreenshotCapture",
+            width, height, density,
+            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+            imageReader?.surface,
+            null,
+            null
+        )
+
+        if (virtualDisplay == null) {
+            callback?.onError("创建虚拟屏幕失败")
+            cleanup()
+            stopSelf()
+        }
     }
 
     private fun cleanup() {

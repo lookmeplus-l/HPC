@@ -33,13 +33,13 @@ class PresetImageManager(private val context: Context) {
 
         for (name in names) {
             try {
-                val input = context.assets.open("preset_images/$name")
-                val file = File(cacheDir, name)
-                if (!file.exists()) {
-                    FileOutputStream(file).use { out -> input.copyTo(out) }
+                context.assets.open("preset_images/$name").use { input ->
+                    val file = File(cacheDir, name)
+                    if (!file.exists()) {
+                        FileOutputStream(file).use { out -> input.copyTo(out) }
+                    }
+                    cachePaths[name] = file.absolutePath
                 }
-                cachePaths[name] = file.absolutePath
-                input.close()
             } catch (e: Exception) {
                 // skip missing assets
             }

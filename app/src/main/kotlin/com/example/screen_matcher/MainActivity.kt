@@ -90,9 +90,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (floatingActive) {
+            FloatingWindowService.onStartRecognition = null
             stopService(Intent(this, FloatingWindowService::class.java))
             floatingActive = false
         } else {
+            FloatingWindowService.onStartRecognition = { startRecognition() }
             val intent = Intent(this, FloatingWindowService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(intent)
@@ -227,6 +229,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        FloatingWindowService.onStartRecognition = null
         if (floatingActive) {
             stopService(Intent(this, FloatingWindowService::class.java))
         }
