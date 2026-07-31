@@ -18,3 +18,9 @@ gen/
 .DS_Store
 *.swp
 *.swo
+
+# Scripts
+scripts/__pycache__/
+scripts/*.state
+scripts/*.pid
+scripts/*.log
