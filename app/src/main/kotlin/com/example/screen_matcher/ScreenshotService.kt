@@ -65,7 +65,7 @@ class ScreenshotService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
 
-        val resultCode = intent?.getIntExtra("resultCode", -1) ?: -1
+        val resultCode = intent?.getIntExtra("resultCode", Int.MIN_VALUE) ?: Int.MIN_VALUE
         val data = if (Build.VERSION.SDK_INT >= 33) {
             intent?.getParcelableExtra("data", Intent::class.java)
         } else {
@@ -73,7 +73,7 @@ class ScreenshotService : Service() {
             intent?.getParcelableExtra<Intent>("data")
         }
 
-        if (resultCode == -1 || data == null) {
+        if (resultCode == Int.MIN_VALUE || data == null) {
             callback?.onError("Invalid intent data")
             stopSelf()
             return START_NOT_STICKY
